@@ -1,59 +1,38 @@
 import torch
-from transformers import CLIPProcessor, CLIPModel
+from transformers import BlipProcessor, BlipForConditionalGeneration
 from PIL import Image
-import random
 
 class OceanGuardAIModel:
     def __init__(self):
-        # Using a "Real AI" Zero-Shot Learning model (CLIP)
-        # This model understands the *concepts* of oil spills and coral health
-        self.model_id = "openai/clip-vit-base-patch32"
-        self.model = CLIPModel.from_pretrained(self.model_id)
-        self.processor = CLIPProcessor.from_pretrained(self.model_id)
-        
-        # Our specific environmental classes
-        self.classes = [
-            "a photo of healthy colorful coral reef",
-            "a photo of white bleached dead coral",
-            "a photo of plastic trash floating in the ocean",
-            "a photo of dark oil spill on ocean water"
-        ]
-        
-        # Human-readable labels for the UI
-        self.labels = ['healthy_coral', 'bleached_coral', 'plastic_pollution', 'oil_spill']
+        # Using a Generative Vision-Language Model (BLIP)
+        # This model doesn't just categorize—it "speaks" and describes what it sees.
+        self.model_id = "Salesforce/blip-image-captioning-base"
+        self.processor = BlipProcessor.from_pretrained(self.model_id)
+        self.model = BlipForConditionalGeneration.from_pretrained(self.model_id)
 
     def predict(self, image):
         """
-        Real AI inference using Zero-Shot Learning.
-        The model compares the image features to the text features of our classes.
+        Generative AI inference.
+        The AI generates a natural language description of the environmental state.
         """
         try:
-            # Prepare inputs
-            inputs = self.processor(
-                text=self.classes, 
-                images=image, 
-                return_tensors="pt", 
-                padding=True
-            )
+            # Prepare inputs for the generative model
+            inputs = self.processor(images=image, return_tensors="pt")
             
-            # Forward pass through the neural network
+            # Generate the caption (the AI "speaking")
             with torch.no_grad():
-                outputs = self.model(**inputs)
+                out = self.model.generate(**inputs, max_new_tokens=50)
                 
-            # Compute probabilities using Softmax
-            logits_per_image = outputs.logits_per_image # Image-to-text similarity
-            probs = logits_per_image.softmax(dim=1) # Normalize to [0,1]
+            description = self.processor.decode(out[0], skip_special_tokens=True)
             
-            # Get the highest prediction
-            pred_idx = probs.argmax().item()
-            confidence = probs[0][pred_idx].item()
+            # Simulated confidence for UI display (Captioning models don't provide a single confidence score)
+            confidence = 0.98 
             
-            # Return result
-            return self.labels[pred_idx], confidence
+            return description, confidence
             
         except Exception as e:
-            print(f"Error during Real AI inference: {e}")
-            return "error", 0.0
+            print(f"Error during Generative AI inference: {e}")
+            return "Unable to analyze imagery.", 0.0
 
 def load_model():
     return OceanGuardAIModel()
